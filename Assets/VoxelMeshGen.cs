@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 /// <summary>
@@ -9,7 +10,8 @@ using UnityEngine;
 public class VoxelMeshGen : MonoBehaviour {
 	private List<Vector3> vertices;
 	private List<int> triangles;
-	private Mesh mesh;
+	private List<Color> colors;
+    private Mesh mesh;
 	private int[,,] pointmap;
 
 	public enum FaceDirection {
@@ -23,21 +25,18 @@ public class VoxelMeshGen : MonoBehaviour {
 		mesh.MarkDynamic();
 		vertices = new List<Vector3>();
 		triangles = new List<int>();
-	}
+		colors = new List<Color>();
+    }
 
 	void Start() {
-		//int[,,] points = new int[,,]{
-		//	{ {1,0,1}, {0,1,0}, {1,0,1},},
-		//	{ {0,1,0}, {1,0,1}, {0,1,0},},
-		//	{ {1,0,1}, {0,1,0}, {1,0,1},}
-		//};
+		//int[,,] points = new int[,,]{ { {1,0,1}, {0,1,0}, {1,0,1},}, { {0,1,0}, {1,0,1}, {0,1,0},}, { {1,0,1}, {0,1,0}, {1,0,1},} }; // 3d "checkerboard" of cubes
 
-		int[,,] points2 = new int[16, 20, 16];
+		int[,,] points2 = new int[16, 21, 16]; // Maximum amount of cubes that can be contained in a single mesh in worst case scenario (3d "checkerboard") is 16*16*21
 
 		for (int i = 0; i < 16; i++) {
-			for (int j = 0; j < 20; j++) {
-				for (int k = 0; k < 16; k++) {
-					points2[i, j, k] = Random.Range(0, 10000) % 2;
+            for (int j = 0; j < 21; j++) {
+                for (int k = 0; k < 16; k++) {
+                    points2[i, j, k] = Random.Range(0, 10000) % 3;
 				}
 			}
 		}
@@ -71,8 +70,8 @@ public class VoxelMeshGen : MonoBehaviour {
 		for (int x = 0; x < pointmap.GetLength(0); x++) {
 			for (int y = 0; y < pointmap.GetLength(1); y++) {
 				for (int z = 0; z < pointmap.GetLength(2); z++) {
-					if (pointmap[x, y, z] == 1)
-						GenerateCube(new Vector3(x, y, z));
+					if (pointmap[x, y, z] != 0)
+						GenerateCube(new Vector3(x, y, z), pointmap[x,y,z]);
 				}
 			}
 		}
@@ -83,17 +82,17 @@ public class VoxelMeshGen : MonoBehaviour {
 
 
 
-	/// <summary>
-	/// Generates the mesh data for a cube
-	/// </summary>
-	/// <param name="cubePos">point position of the cube</param>
-	public void GenerateCube(Vector3 cubePos) {
-		if (cubePos.x == pointmap.GetLength(0) - 1 || pointmap[(int)cubePos.x + 1, (int)cubePos.y, (int)cubePos.z] == 0) GenerateCubeFace(FaceDirection.xp, cubePos);
-		if (cubePos.y == pointmap.GetLength(1) - 1 || pointmap[(int)cubePos.x, (int)cubePos.y + 1, (int)cubePos.z] == 0) GenerateCubeFace(FaceDirection.yp, cubePos);
-		if (cubePos.z == pointmap.GetLength(2) - 1 || pointmap[(int)cubePos.x, (int)cubePos.y, (int)cubePos.z + 1] == 0) GenerateCubeFace(FaceDirection.zp, cubePos);
-		if (cubePos.x == 0 || pointmap[(int)cubePos.x - 1, (int)cubePos.y, (int)cubePos.z] == 0) GenerateCubeFace(FaceDirection.xm, cubePos);
-		if (cubePos.y == 0 || pointmap[(int)cubePos.x, (int)cubePos.y - 1, (int)cubePos.z] == 0) GenerateCubeFace(FaceDirection.ym, cubePos);
-		if (cubePos.z == 0 || pointmap[(int)cubePos.x, (int)cubePos.y, (int)cubePos.z - 1] == 0) GenerateCubeFace(FaceDirection.zm, cubePos);
+    /// <summary>
+    /// Generates the mesh data for a cube
+    /// </summary>
+    /// <param name="cubePos">point position of the cube</param>
+    public void GenerateCube(Vector3 cubePos, int cubetype) {
+		if (cubePos.x == pointmap.GetLength(0) - 1 || pointmap[(int)cubePos.x + 1, (int)cubePos.y, (int)cubePos.z] == 0) GenerateCubeFace(FaceDirection.xp, cubePos, cubetype);
+		if (cubePos.y == pointmap.GetLength(1) - 1 || pointmap[(int)cubePos.x, (int)cubePos.y + 1, (int)cubePos.z] == 0) GenerateCubeFace(FaceDirection.yp, cubePos, cubetype);
+		if (cubePos.z == pointmap.GetLength(2) - 1 || pointmap[(int)cubePos.x, (int)cubePos.y, (int)cubePos.z + 1] == 0) GenerateCubeFace(FaceDirection.zp, cubePos, cubetype);
+		if (cubePos.x == 0 || pointmap[(int)cubePos.x - 1, (int)cubePos.y, (int)cubePos.z] == 0) GenerateCubeFace(FaceDirection.xm, cubePos, cubetype);
+		if (cubePos.y == 0 || pointmap[(int)cubePos.x, (int)cubePos.y - 1, (int)cubePos.z] == 0) GenerateCubeFace(FaceDirection.ym, cubePos, cubetype);
+		if (cubePos.z == 0 || pointmap[(int)cubePos.x, (int)cubePos.y, (int)cubePos.z - 1] == 0) GenerateCubeFace(FaceDirection.zm, cubePos, cubetype);
 	}
 
 	/// <summary>
@@ -101,7 +100,7 @@ public class VoxelMeshGen : MonoBehaviour {
 	/// </summary>
 	/// <param name="dir">direction of face</param>
 	/// <param name="pointPos">point position of the cube</param>
-	public void GenerateCubeFace(FaceDirection dir, Vector3 pointPos) {
+	public void GenerateCubeFace(FaceDirection dir, Vector3 pointPos, int cubetype) {
 		int vertIndex = vertices.Count;
 		switch (dir) {
 			case FaceDirection.xp:
@@ -144,6 +143,11 @@ public class VoxelMeshGen : MonoBehaviour {
 		triangles.AddRange(new int[] { vertIndex, vertIndex + 1, vertIndex + 2 });
 		triangles.AddRange(new int[] { vertIndex + 2, vertIndex + 1, vertIndex + 3 });
 
+        if (cubetype == 1)
+            colors.AddRange(Enumerable.Repeat(Color.green, 4).ToArray());
+        else if (cubetype == 2)
+            colors.AddRange(Enumerable.Repeat(Color.red, 4).ToArray());
+
 	}
 
 
@@ -155,6 +159,7 @@ public class VoxelMeshGen : MonoBehaviour {
 	private void ClearMesh() {
 		vertices.Clear();
 		triangles.Clear();
+        colors.Clear();
 		mesh.Clear();
 	}
 
@@ -165,6 +170,7 @@ public class VoxelMeshGen : MonoBehaviour {
 	private void Recalculate() {
 		mesh.vertices = vertices.ToArray();
 		mesh.triangles = triangles.ToArray();
+        mesh.colors = colors.ToArray();
 		mesh.RecalculateNormals();
 	}
 
